@@ -149,6 +149,7 @@ def main(page: ft.Page):
             vertical_alignment=ft.CrossAxisAlignment.START,
         ),
         height=200,
+        bgcolor="red",
     )
 
     main_container = ft.Container(
@@ -197,6 +198,12 @@ def main(page: ft.Page):
         alignment=ft.alignment.center,
     )
 
+    ram_input = ft.Container(
+        content=ft.Column([ft.Text("RAM")]),
+        expand=True,
+        bgcolor="blue",
+    )
+
     def route_change(route):
         if page.route == "/":
             page.views.clear()
@@ -218,7 +225,7 @@ def main(page: ft.Page):
             page.views.append(
                 ft.View(
                     "/settings",
-                    [bar_container],
+                    [ft.Column([bar_container, ram_input])],
                 )
             )
 
