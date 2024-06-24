@@ -8,7 +8,7 @@ import subprocess
 
 minecraft_dir = os.getenv("APPDATA") + "\\.minecraftLauncher"
 
-versions = [
+versions_vanilla = [
     version["id"]
     for version in mclib.utils.get_version_list()
     if version["type"] == "release"
@@ -251,7 +251,6 @@ def main(page: ft.Page):
         alignment=ft.alignment.top_center,
         height=400,
         expand=True,
-        bgcolor="red",
     )
 
     def show_news(e, news_btn, updates_btn):
@@ -446,18 +445,88 @@ def main(page: ft.Page):
         expand=True,
     )
 
+    def get_vanilla_versions():
+        return [
+            version["id"]
+            for version in mclib.utils.get_version_list()
+            if version["type"] == "release"
+        ]
+
+    def get_forge_versions(max: int = 50):
+        versions = mclib.forge.list_forge_versions()
+        versions = versions[:max]
+
+        return versions
+
+    def get_installed_versions():
+        return [
+            version["id"]
+            for version in mclib.utils.get_installed_versions(minecraft_dir)
+        ]
+
+    def update_versions_list(e, category):
+        if category == "Vanilla":
+            versions = get_vanilla_versions()
+        elif category == "Forge":
+            versions = get_forge_versions(50)
+        else:  # Others
+            versions = get_installed_versions()
+
+        items_version.controls = [create_version_item(version) for version in versions]
+        page.update()
+
+    vanilla_button = ft.Container(
+        ft.Text("Vanilla", size=20, color="white"),
+        bgcolor="#242a30",
+        expand=True,
+        border_radius=12,
+        alignment=ft.alignment.center,
+        on_click=lambda e: update_versions_list(e, "Vanilla"),
+    )
+
+    forge_button = ft.Container(
+        ft.Text("Forge", size=20, color="white"),
+        bgcolor="#242a30",
+        expand=True,
+        border_radius=12,
+        alignment=ft.alignment.center,
+        on_click=lambda e: update_versions_list(e, "Forge"),
+    )
+
+    others_button = ft.Container(
+        ft.Text("Others", size=20, color="white"),
+        bgcolor="#242a30",
+        expand=True,
+        border_radius=12,
+        alignment=ft.alignment.center,
+        on_click=lambda e: update_versions_list(e, "Others"),
+    )
+
+    items_version = ft.Column(
+        [create_version_item(version) for version in versions_vanilla],
+        spacing=10,
+        scroll=ft.ScrollMode.AUTO,
+        expand=True,
+    )
+
     versions_container = ft.Container(
-        content=ft.Row(
+        content=ft.Column(
             [
-                ft.Column(
-                    [create_version_item(i) for i in versions],
-                    spacing=15,
-                    scroll=ft.ScrollMode.AUTO,
+                ft.Container(
+                    content=ft.Row(
+                        [vanilla_button, forge_button, others_button],
+                    ),
+                    height=50,
                 ),
-                version_details,
+                ft.Row(
+                    [
+                        ft.Column([items_version]),
+                        version_details,
+                    ],
+                    spacing=20,
+                    expand=True,
+                ),
             ],
-            spacing=20,
-            expand=True,
         ),
         expand=True,
     )
