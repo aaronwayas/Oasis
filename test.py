@@ -7,7 +7,6 @@ import subprocess
 
 
 minecraft_dir = os.getenv("APPDATA") + "\\.minecraftLauncher"
-print(minecraft_dir)
 
 versions = [
     version["id"]
@@ -17,15 +16,24 @@ versions = [
 
 link_discord = "https://discord.gg/vcQMwRzbak"
 
-news = [
-    ("Version 1.0.0, Add: News system", "11/06/2022"),
-    ("Version 1.0.0, Add: News system", "11/06/2022"),
-]
 
-updates = [
-    ("Version 1.1.0, Update: Bug fixes", "12/07/2022"),
-    ("Version 1.1.0, Update: Performance improvements", "12/07/2022"),
-]
+def load_news_updates():
+    try:
+        with open("utils/news_updates.json", "r") as f:
+            data = json.load(f)
+            return data
+    except FileNotFoundError:
+        print("File 'news_updates.json' not found")
+        return {"news": [], "updates": []}
+    except json.JSONDecodeError:
+        print("File 'news_updates.json' is not valid JSON")
+        return {"news": [], "updates": []}
+
+
+news_updates = load_news_updates()
+
+news = news_updates.get("news", [])
+updates = news_updates.get("updates", [])
 
 
 def install_version(page: ft.Page, version: str):
@@ -87,7 +95,10 @@ def save_config(page: ft.Page, path, username: str, ram: str):
         create_dialog(page, "Error", f"Error saving config: {e}")
 
 
-def create_news_item(text, fecha):
+def create_news_item(item):
+    text = item.get("text", "No text available")
+    fecha = item.get("date", "No date available")
+
     return ft.Container(
         content=ft.Column(
             [ft.Text(fecha, size=12, color="black"), ft.Text(text, color="black")],
@@ -140,7 +151,7 @@ def run_minecraft(username, ram, version):
 
 def main(page: ft.Page):
     page.title = "Oasis Client"
-    page.window_always_on_top = True  # off on release
+    page.window_always_on_top = False  # off on release
     page.bgcolor = "#1A1C1E"
 
     def go_to_home(version: str):
@@ -232,26 +243,25 @@ def main(page: ft.Page):
 
     news_container = ft.Container(
         content=ft.Column(
-            [create_news_item(x[0], x[1]) for x in news],
+            [create_news_item(x) for x in news],
             spacing=10,
-            alignment=ft.MainAxisAlignment.CENTER,
+            alignment=ft.MainAxisAlignment.START,
             scroll=ft.ScrollMode.AUTO,
         ),
-        alignment=ft.alignment.center,
+        alignment=ft.alignment.top_center,
         height=400,
         expand=True,
+        bgcolor="red",
     )
 
     def show_news(e, news_btn, updates_btn):
-        news_container.content.controls = [create_news_item(x[0], x[1]) for x in news]
+        news_container.content.controls = [create_news_item(x) for x in news]
         news_btn.style.bgcolor = "#242a30"
         updates_btn.style.bgcolor = ft.colors.TRANSPARENT
         page.update()
 
     def show_updates(e, news_btn, updates_btn):
-        news_container.content.controls = [
-            create_news_item(x[0], x[1]) for x in updates
-        ]
+        news_container.content.controls = [create_news_item(x) for x in updates]
         news_btn.style.bgcolor = ft.colors.TRANSPARENT
         updates_btn.style.bgcolor = "#242a30"
         page.update()
