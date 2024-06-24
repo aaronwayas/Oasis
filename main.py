@@ -140,7 +140,7 @@ def run_minecraft(username, ram, version):
 
 def main(page: ft.Page):
     page.title = "Oasis Client"
-    page.window_always_on_top = True  # off on release
+    page.window_always_on_top = False  # off on release
     page.bgcolor = "#1A1C1E"
 
     def go_to_home(version: str):
