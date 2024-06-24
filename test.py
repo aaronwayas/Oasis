@@ -1,20 +1,45 @@
 import flet as ft
+import minecraft_launcher_lib as mclib
+
 import json
 import os
+import subprocess
+
+
+minecraft_dir = os.getenv("APPDATA") + "\\.minecraftLauncher"
+print(minecraft_dir)
+
+versions = [
+    version["id"]
+    for version in mclib.utils.get_version_list()
+    if version["type"] == "release"
+]
 
 link_discord = "https://discord.gg/vcQMwRzbak"
 
 news = [
     ("Version 1.0.0, Add: News system", "11/06/2022"),
     ("Version 1.0.0, Add: News system", "11/06/2022"),
-    # Add more news items as needed
 ]
 
 updates = [
     ("Version 1.1.0, Update: Bug fixes", "12/07/2022"),
     ("Version 1.1.0, Update: Performance improvements", "12/07/2022"),
-    # Add more update items as needed
 ]
+
+
+def install_version(page: ft.Page, version: str):
+    if get_install_status(version) == "Installed":
+        print(f"Version {version} is already installed")
+        return
+
+    try:
+        print(f"Installing version {version}")
+        mclib.install.install_minecraft_version(version, minecraft_dir)
+        create_dialog(page, "Success", f"Version {version} installed successfully")
+    except Exception as e:
+        print(f"Error installing version {version}: {e}")
+        create_dialog(page, "Error", f"Error installing version {version}: {e}")
 
 
 def load_config():
@@ -47,7 +72,6 @@ def save_config(page: ft.Page, path, username: str, ram: str):
         os.makedirs(os.path.dirname(path))
 
     if not username or not ram:
-        print("Username or RAM value is empty")
         create_dialog(page, "Error", "Username or RAM value is empty")
         return
 
@@ -58,10 +82,8 @@ def save_config(page: ft.Page, path, username: str, ram: str):
         )
         with open(path, "w") as f:
             json.dump({"username": username, "ram": ram}, f)
-        print(f"Config saved! Username: {username}, RAM: {ram}GB")
         create_dialog(page, "Config saved!", "Config saved successfully!")
     except Exception as e:
-        print(f"Error saving config: {e}")
         create_dialog(page, "Error", f"Error saving config: {e}")
 
 
@@ -77,10 +99,103 @@ def create_news_item(text, fecha):
     )
 
 
+def get_date_version(version):
+    for ver in mclib.utils.get_version_list():
+        if ver["id"] == version:
+            release_time = ver["releaseTime"]
+            return str(release_time)[:16]
+    return None
+
+
+def get_type_version(version):
+    for ver in mclib.utils.get_version_list():
+        if ver["id"] == version:
+            return ver["type"]
+    return None
+
+
+def get_install_status(version):
+    for ver in mclib.utils.get_installed_versions(minecraft_dir):
+        if ver["id"] == version:
+            return "Installed"
+    return "Not Installed"
+
+
+def run_minecraft(username, ram, version):
+    try:
+        options = {
+            "username": username,
+            "uuid": "",
+            "token": "",
+            "launcherVersion": "0.0.2",
+        }
+        options["jvmArguments"] = [f"-Xmx{ram}G", f"-Xms{ram}G"]
+        minecraft_command = mclib.command.get_minecraft_command(
+            version, minecraft_dir, options
+        )
+        subprocess.run(minecraft_command)
+    except Exception as e:
+        print(f"Error running Minecraft: {e}")
+
+
 def main(page: ft.Page):
     page.title = "Oasis Client"
-    page.window_always_on_top = True
+    page.window_always_on_top = True  # off on release
     page.bgcolor = "#1A1C1E"
+
+    def go_to_home(version: str):
+        version_button.content.value = version
+        play_button.on_click = lambda _: run_minecraft(
+            load_config()["username"], load_config()["ram"], version
+        )
+        page.go("/")
+
+    def show_version_details(version: str):
+        version_details.content.alignment = ft.MainAxisAlignment.START
+        version_details.content.horizontal_alignment = ft.CrossAxisAlignment.START
+
+        version_details.content.controls = [
+            ft.Text(f"Version {version}", size=30, weight=ft.FontWeight.BOLD),
+            ft.Text(f"Date: {get_date_version(version)}", size=20),
+            ft.Text(
+                f"Type: {get_type_version(version)} Status: {get_install_status(version)}",
+                size=20,
+            ),
+            ft.Row(
+                [
+                    ft.ElevatedButton("Select", on_click=lambda _: go_to_home(version)),
+                    ft.ElevatedButton(
+                        "Download", on_click=lambda _: install_version(page, version)
+                    ),
+                ]
+            ),
+        ]
+        page.update()
+
+    def create_version_item(version: str):
+        return ft.Container(
+            content=ft.Column(
+                [ft.Text(version, size=30)],
+            ),
+            padding=ft.padding.all(10),
+            border_radius=12,
+            height=70,
+            width=250,
+            bgcolor="#242a30",
+            on_click=lambda _: show_version_details(version),
+        )
+
+    version_details = ft.Container(
+        content=ft.Column(
+            [ft.Text("Select a version", size=30, weight=ft.FontWeight.BOLD)],
+            alignment=ft.MainAxisAlignment.CENTER,
+            horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+        ),
+        bgcolor="#2d3740",
+        border_radius=12,
+        expand=True,
+        padding=10,
+    )
 
     version_button = ft.FilledButton(
         content=ft.Text("VERSION", color="white", size=17),
@@ -89,6 +204,7 @@ def main(page: ft.Page):
         ),
         width=150,
         height=45,
+        on_click=lambda e: page.go("/download"),
     )
 
     play_button = ft.FilledButton(
@@ -98,6 +214,11 @@ def main(page: ft.Page):
         ),
         width=150,
         height=45,
+        on_click=lambda _: create_dialog(
+            page,
+            "Select a version",
+            "Select a version first to play (In the versions view)",
+        ),
     )
 
     image = ft.Container(
@@ -315,12 +436,43 @@ def main(page: ft.Page):
         expand=True,
     )
 
+    versions_container = ft.Container(
+        content=ft.Row(
+            [
+                ft.Column(
+                    [create_version_item(i) for i in versions],
+                    spacing=15,
+                    scroll=ft.ScrollMode.AUTO,
+                ),
+                version_details,
+            ],
+            spacing=20,
+            expand=True,
+        ),
+        expand=True,
+    )
+
     def route_change(route):
         if page.route == "/":
             page.views.clear()
             page.views.append(ft.View("/", [main_container]))
         elif page.route == "/download":
-            page.views.append(ft.View("/download", []))
+            page.views.append(
+                ft.View(
+                    "/download",
+                    [
+                        ft.Container(
+                            content=ft.Column(
+                                [
+                                    bar_container,
+                                    versions_container,
+                                ],
+                            ),
+                            expand=True,
+                        )
+                    ],
+                )
+            )
         elif page.route == "/settings":
             page.views.append(
                 ft.View(
